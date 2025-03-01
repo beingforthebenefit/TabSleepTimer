@@ -34,7 +34,8 @@ A Chrome extension that automatically closes tabs after a set period of time, si
 3. Select a preset timer or enter a custom duration
 4. A confirmation will appear showing the active timer
 5. When 1 minute remains, a countdown will appear in the upper-right corner of the page
-6. To cancel the timer, click the "Cancel Timer" button in either the popup or the countdown notification
+6. To extend the timer, click "+5m", "+30m", or "+1h" on the countdown notification
+7. To cancel the timer, click the "Cancel Timer" button in either the popup or the countdown notification
 
 ## License
 
