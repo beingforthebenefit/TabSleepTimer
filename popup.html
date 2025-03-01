@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab Sleep Timer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Tab Sleep Timer</h1>
+    <p>Close this tab after:</p>
+    
+    <div class="timer-options">
+      <button class="timer-btn" data-minutes="120">2 hours</button>
+      <button class="timer-btn" data-minutes="60">1 hour</button>
+      <button class="timer-btn" data-minutes="30">30 min</button>
+      <button class="timer-btn" data-minutes="10">10 min</button>
+    </div>
+    
+    <div class="custom-timer">
+      <input type="number" id="custom-minutes" min="1" max="1440" placeholder="Custom minutes">
+      <button id="custom-timer-btn">Set</button>
+    </div>
+    
+    <div id="active-timer" class="hidden">
+      <p>Timer active: <span id="time-remaining"></span></p>
+      <button id="cancel-timer">Cancel Timer</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
