@@ -25,3 +25,11 @@ chrome.runtime.sendMessage({ action: 'getTimerStatus' }, (response) => {
     // when appropriate
   }
 });
+
+// Listen for timer extension events from the countdown UI
+document.addEventListener('click', (event) => {
+  if (event.target.matches('#tab-sleep-timer-countdown button')) {
+    // The click handlers are added directly in the injected UI
+    // No need to handle them here
+  }
+});

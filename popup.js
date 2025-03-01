@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const cancelTimerBtn = document.getElementById('cancel-timer');
   const activeTimerDiv = document.getElementById('active-timer');
   const timeRemainingSpan = document.getElementById('time-remaining');
+  const timerOptionsDiv = document.querySelector('.timer-options');
+  const customTimerDiv = document.querySelector('.custom-timer');
 
   let updateInterval = null;
   let currentTabId = null;

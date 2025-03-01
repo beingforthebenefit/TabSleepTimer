@@ -12,13 +12,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'getTimerStatus') {
     const tabId = message.tabId || sender.tab?.id;
     if (tabId && activeTimers[tabId]) {
-      sendResponse({ 
-        active: true, 
+      sendResponse({
+        active: true,
         endTime: activeTimers[tabId].endTime,
         timeRemaining: Math.max(0, Math.floor((activeTimers[tabId].endTime - Date.now()) / 1000))
       });
     } else {
       sendResponse({ active: false });
+    }
+  } else if (message.action === 'extendTimer') {
+    const tabId = message.tabId || sender.tab?.id;
+    const additionalMinutes = message.minutes;
+
+    if (tabId && activeTimers[tabId]) {
+      // Calculate new end time
+      const newEndTime = activeTimers[tabId].endTime + (additionalMinutes * 60 * 1000);
+
+      // Update the timer
+      clearTimeout(activeTimers[tabId].timerId);
+      const newRemainingMinutes = Math.ceil((newEndTime - Date.now()) / (60 * 1000));
+
+      setTabTimer(tabId, newRemainingMinutes, newEndTime);
+      sendResponse({
+        success: true,
+        endTime: newEndTime,
+        timeRemaining: Math.max(0, Math.floor((newEndTime - Date.now()) / 1000))
+      });
+    } else {
+      sendResponse({ success: false });
     }
   }
   return true; // Keep the message channel open for async responses
@@ -28,7 +49,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 function setTabTimer(tabId, minutes, endTime) {
   // Cancel any existing timer for this tab
   cancelTabTimer(tabId);
-  
+
   // Store timer information
   activeTimers[tabId] = {
     endTime: endTime,
@@ -37,17 +58,17 @@ function setTabTimer(tabId, minutes, endTime) {
     countdownInterval: null,
     countdownShown: false
   };
-  
+
   // Save to storage for persistence
   chrome.storage.local.get(['sleepTimers'], (result) => {
     const timers = result.sleepTimers || {};
     timers[tabId] = { endTime: endTime };
     chrome.storage.local.set({ sleepTimers: timers });
   });
-  
+
   // Calculate when to show the countdown (1 minute before closing)
   const countdownTime = (minutes * 60 - 60) * 1000; // 1 minute before closing
-  
+
   if (countdownTime > 0) {
     activeTimers[tabId].countdownTimerId = setTimeout(() => {
       showCountdown(tabId);
@@ -56,14 +77,14 @@ function setTabTimer(tabId, minutes, endTime) {
     // If less than 1 minute, show countdown immediately
     showCountdown(tabId);
   }
-  
+
   // Set up a check every 5 seconds to ensure countdown is showing when it should be
   activeTimers[tabId].countdownCheckInterval = setInterval(() => {
     if (!activeTimers[tabId]) {
       clearInterval(activeTimers[tabId]?.countdownCheckInterval);
       return;
     }
-    
+
     // Check if tab still exists
     chrome.tabs.get(tabId, (tab) => {
       if (chrome.runtime.lastError) {
@@ -72,9 +93,9 @@ function setTabTimer(tabId, minutes, endTime) {
         cancelTabTimer(tabId);
         return;
       }
-      
+
       const timeRemaining = Math.max(0, Math.floor((activeTimers[tabId].endTime - Date.now()) / 1000));
-      
+
       // If less than 60 seconds remain and countdown isn't shown, show it
       if (timeRemaining <= 60 && !activeTimers[tabId].countdownShown) {
         showCountdown(tabId);
@@ -97,14 +118,14 @@ function cancelTabTimer(tabId) {
       clearInterval(activeTimers[tabId].countdownCheckInterval);
     }
     delete activeTimers[tabId];
-    
+
     // Clear from storage
     chrome.storage.local.get(['sleepTimers'], (result) => {
       const timers = result.sleepTimers || {};
       delete timers[tabId];
       chrome.storage.local.set({ sleepTimers: timers });
     });
-    
+
     // Try to remove countdown if it's showing
     try {
       chrome.scripting.executeScript({
@@ -129,7 +150,7 @@ function closeTab(tabId) {
       console.log("Tab doesn't exist, can't close:", tabId);
       // Clean up the timer anyway
       delete activeTimers[tabId];
-      
+
       // Remove from storage
       chrome.storage.local.get(['sleepTimers'], (result) => {
         const timers = result.sleepTimers || {};
@@ -138,7 +159,7 @@ function closeTab(tabId) {
       });
       return;
     }
-    
+
     // Tab exists, try to close it
     chrome.tabs.remove(tabId).then(() => {
       console.log("Tab closed successfully:", tabId);
@@ -147,7 +168,7 @@ function closeTab(tabId) {
     }).finally(() => {
       // Clean up regardless of whether the tab was closed
       delete activeTimers[tabId];
-      
+
       // Remove from storage
       chrome.storage.local.get(['sleepTimers'], (result) => {
         const timers = result.sleepTimers || {};
@@ -166,30 +187,30 @@ function showCountdown(tabId) {
       console.log("Tab doesn't exist, can't show countdown:", tabId);
       return;
     }
-    
+
     if (!activeTimers[tabId]) return;
-    
+
     // Mark countdown as shown
     activeTimers[tabId].countdownShown = true;
-    
+
     chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: injectCountdown
     }).catch(err => {
       console.log("Failed to inject countdown, tab may be inaccessible:", err);
     });
-    
+
     // Start sending countdown updates to the content script
     if (activeTimers[tabId] && activeTimers[tabId].countdownInterval) {
       clearInterval(activeTimers[tabId].countdownInterval);
     }
-    
+
     activeTimers[tabId].countdownInterval = setInterval(() => {
       if (!activeTimers[tabId]) {
         clearInterval(activeTimers[tabId]?.countdownInterval);
         return;
       }
-      
+
       // Check if tab still exists
       chrome.tabs.get(tabId, (tab) => {
         if (chrome.runtime.lastError) {
@@ -201,9 +222,9 @@ function showCountdown(tabId) {
           }
           return;
         }
-        
+
         const timeRemaining = Math.max(0, Math.floor((activeTimers[tabId].endTime - Date.now()) / 1000));
-        
+
         // Send the update to the content script
         try {
           chrome.tabs.sendMessage(tabId, {
@@ -231,7 +252,7 @@ function showCountdown(tabId) {
         } catch (err) {
           console.log("Error sending message to tab:", err);
         }
-        
+
         if (timeRemaining <= 0) {
           if (activeTimers[tabId]) {
             clearInterval(activeTimers[tabId].countdownInterval);
@@ -248,7 +269,7 @@ function injectCountdown() {
   if (document.getElementById('tab-sleep-timer-countdown')) {
     return;
   }
-  
+
   const countdownContainer = document.createElement('div');
   countdownContainer.id = 'tab-sleep-timer-countdown';
   countdownContainer.style.cssText = `
@@ -268,11 +289,11 @@ function injectCountdown() {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transition: opacity 0.3s ease;
   `;
-  
+
   const message = document.createElement('div');
   message.textContent = 'Tab will close in:';
   message.style.marginBottom = '8px';
-  
+
   const timer = document.createElement('div');
   timer.id = 'tab-sleep-timer-countdown-time';
   timer.textContent = '0:00'; // Initialize with a value
@@ -281,7 +302,51 @@ function injectCountdown() {
     font-weight: bold;
     margin-bottom: 12px;
   `;
-  
+
+  // Add extension buttons
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.cssText = `
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    width: 100%;
+  `;
+
+  // Create extension buttons
+  const createExtendButton = (minutes, label) => {
+    const button = document.createElement('button');
+    button.textContent = label;
+    button.style.cssText = `
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      flex: 1;
+      height: 36px;
+    `;
+
+    button.addEventListener('click', () => {
+      chrome.runtime.sendMessage({
+        action: 'extendTimer',
+        minutes: minutes
+      });
+    });
+
+    return button;
+  };
+
+  // Add the extension buttons
+  const fiveMinButton = createExtendButton(5, '+5m');
+  const thirtyMinButton = createExtendButton(30, '+30m');
+  const oneHourButton = createExtendButton(60, '+1h');
+
+  buttonContainer.appendChild(fiveMinButton);
+  buttonContainer.appendChild(thirtyMinButton);
+  buttonContainer.appendChild(oneHourButton);
+
   const cancelButton = document.createElement('button');
   cancelButton.textContent = 'Cancel Timer';
   cancelButton.style.cssText = `
@@ -292,19 +357,22 @@ function injectCountdown() {
     padding: 8px 12px;
     cursor: pointer;
     font-size: 12px;
-    height: 36px; /* Increased height */
+    width: 100%;
+    height: 36px;
+    text-align: center;
   `;
-  
+
   cancelButton.addEventListener('click', () => {
     chrome.runtime.sendMessage({ action: 'cancelTimer' });
     countdownContainer.remove();
   });
-  
+
   countdownContainer.appendChild(message);
   countdownContainer.appendChild(timer);
+  countdownContainer.appendChild(buttonContainer);
   countdownContainer.appendChild(cancelButton);
   document.body.appendChild(countdownContainer);
-  
+
   // Request an immediate update of the timer
   chrome.runtime.sendMessage({ action: 'getTimerStatus' }, (response) => {
     if (response && response.active && response.timeRemaining) {
@@ -327,14 +395,14 @@ function removeCountdownFromPage() {
 chrome.storage.local.get(['sleepTimers'], (result) => {
   const timers = result.sleepTimers || {};
   const now = Date.now();
-  
+
   Object.keys(timers).forEach(tabId => {
     const endTime = timers[tabId].endTime;
-    
+
     if (endTime > now) {
       const remainingMinutes = Math.ceil((endTime - now) / (60 * 1000));
       const remainingSeconds = Math.floor((endTime - now) / 1000);
-      
+
       // Check if tab still exists
       chrome.tabs.get(parseInt(tabId), (tab) => {
         if (chrome.runtime.lastError) {
@@ -344,7 +412,7 @@ chrome.storage.local.get(['sleepTimers'], (result) => {
         } else {
           // Tab exists, restore the timer
           setTabTimer(parseInt(tabId), remainingMinutes, endTime);
-          
+
           // If less than 60 seconds remain, show countdown immediately
           if (remainingSeconds <= 60) {
             showCountdown(parseInt(tabId));
