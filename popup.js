@@ -50,13 +50,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Set timer from custom input
   customTimerBtn.addEventListener('click', () => {
+    setTimerFromCustomInput();
+  });
+
+  // Add Enter key functionality to custom input
+  customMinutesInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      setTimerFromCustomInput();
+    }
+  });
+
+  // Function to set timer from custom input
+  function setTimerFromCustomInput() {
     const minutes = parseInt(customMinutesInput.value);
     if (minutes && minutes > 0 && minutes <= 1440) { // Max 24 hours
       setTimer(minutes);
     } else {
       alert('Please enter a valid number of minutes (1-1440)');
     }
-  });
+  }
 
   // Cancel active timer
   cancelTimerBtn.addEventListener('click', () => {
