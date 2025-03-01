@@ -11,6 +11,12 @@ A Chrome extension that automatically closes tabs after a set period of time, si
 - Cancel the timer at any time
 - Timer persists even if you navigate away from the page or restart the browser
 
+## Screenshots
+
+![Screenshot 1](screenshots/1.png)
+![Screenshot 2](screenshots/2.png)
+![Screenshot 3](screenshots/3.png)
+
 ## Installation
 
 ### From Chrome Web Store (Coming Soon)
