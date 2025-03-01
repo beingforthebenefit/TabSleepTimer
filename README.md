@@ -7,7 +7,7 @@ A Chrome extension that automatically closes tabs after a set period of time, si
 - Set a timer to close the current tab after a specified duration
 - Preset timer options: 2 hours, 1 hour, 30 minutes, 10 minutes
 - Custom timer option (1-1440 minutes)
-- Countdown notification appears in the upper-right corner of the page when 1 minute remains
+- Countdown notification appears in the upper-right corner of the page when 1 minute remains, allowing you to extend (by 5m, 30m, or 1h) or cancel the timer
 - Cancel the timer at any time
 - Timer persists even if you navigate away from the page or restart the browser
 
