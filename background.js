@@ -225,32 +225,17 @@ function showCountdown(tabId) {
 
         const timeRemaining = Math.max(0, Math.floor((activeTimers[tabId].endTime - Date.now()) / 1000));
 
-        // Send the update to the content script
+        // Send the update directly to the page using executeScript
         try {
-          chrome.tabs.sendMessage(tabId, {
-            action: 'updateCountdown',
-            timeRemaining: timeRemaining
-          }, (response) => {
-            // Handle potential error when content script isn't ready
-            if (chrome.runtime.lastError) {
-              console.log("Could not update countdown, trying to reinject:", chrome.runtime.lastError);
-              // Try to reinject the countdown UI
-              chrome.scripting.executeScript({
-                target: { tabId: tabId },
-                func: injectCountdown
-              }).then(() => {
-                // After injecting, try sending the message again after a short delay
-                setTimeout(() => {
-                  chrome.tabs.sendMessage(tabId, {
-                    action: 'updateCountdown',
-                    timeRemaining: timeRemaining
-                  }).catch(err => console.log("Still couldn't update countdown after reinject"));
-                }, 100);
-              }).catch(err => console.log("Failed to reinject countdown"));
-            }
+          chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            func: updateCountdownInPage,
+            args: [timeRemaining]
+          }).catch(err => {
+            console.log("Could not update countdown:", err);
           });
         } catch (err) {
-          console.log("Error sending message to tab:", err);
+          console.log("Error updating countdown:", err);
         }
 
         if (timeRemaining <= 0) {
@@ -262,6 +247,16 @@ function showCountdown(tabId) {
       });
     }, 1000);
   });
+}
+
+// Function to update the countdown in the page
+function updateCountdownInPage(timeRemaining) {
+  const countdownElement = document.getElementById('tab-sleep-timer-countdown-time');
+  if (countdownElement) {
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+    countdownElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
 }
 
 // Function to be injected into the page to create countdown UI
@@ -329,10 +324,11 @@ function injectCountdown() {
     `;
 
     button.addEventListener('click', () => {
-      chrome.runtime.sendMessage({
-        action: 'extendTimer',
-        minutes: minutes
+      // Use a custom event to handle extension
+      const event = new CustomEvent('tabSleepTimerExtend', {
+        detail: { minutes: minutes }
       });
+      document.dispatchEvent(event);
     });
 
     return button;
@@ -359,12 +355,11 @@ function injectCountdown() {
     font-size: 12px;
     width: 100%;
     height: 36px;
-    text-align: center;
   `;
 
   cancelButton.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'cancelTimer' });
-    countdownContainer.remove();
+    // Use a custom event to handle cancellation
+    document.dispatchEvent(new CustomEvent('tabSleepTimerCancel'));
   });
 
   countdownContainer.appendChild(message);
@@ -373,13 +368,17 @@ function injectCountdown() {
   countdownContainer.appendChild(cancelButton);
   document.body.appendChild(countdownContainer);
 
-  // Request an immediate update of the timer
-  chrome.runtime.sendMessage({ action: 'getTimerStatus' }, (response) => {
-    if (response && response.active && response.timeRemaining) {
-      const minutes = Math.floor(response.timeRemaining / 60);
-      const seconds = response.timeRemaining % 60;
-      timer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
+  // Set up event listeners for the custom events
+  document.addEventListener('tabSleepTimerExtend', (e) => {
+    chrome.runtime.sendMessage({
+      action: 'extendTimer',
+      minutes: e.detail.minutes
+    });
+  });
+
+  document.addEventListener('tabSleepTimerCancel', () => {
+    chrome.runtime.sendMessage({ action: 'cancelTimer' });
+    countdownContainer.remove();
   });
 }
 
