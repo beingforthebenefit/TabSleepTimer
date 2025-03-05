@@ -19,7 +19,11 @@ A Chrome extension that automatically closes tabs after a set period of time, si
 
 ## Installation
 
-### From Chrome Web Store (Coming Soon)
+### From Chrome Web Store
+
+1. Click <a href="https://chromewebstore.google.com/detail/tab-sleep-timer/bncbklpmnbgbpnfdgkbahglbjmkcpmjd" target="_blank">here</a> to install
+
+OR
 
 1. Visit the Chrome Web Store
 2. Search for "Tab Sleep Timer"
