@@ -50,3 +50,7 @@ OR
 ## License
 
 MIT
+
+---
+
+<a href="https://www.producthunt.com/posts/tab-sleep-timer?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-tab&#0045;sleep&#0045;timer" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=938624&theme=dark&t=1741204867053" alt="Tab&#0032;Sleep&#0032;Timer - Automatically&#0032;closes&#0032;tabs&#0032;after&#0032;a&#0032;set&#0032;period&#0032;of&#0032;time | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
