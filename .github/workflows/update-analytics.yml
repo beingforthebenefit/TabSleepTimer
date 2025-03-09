@@ -1,0 +1,25 @@
+name: Update Chrome Web Store Analytics
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs daily at midnight UTC
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  fetch-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Fetch Chrome Web Store Data
+        run: |
+          curl -s "https://chromewebstore.google.com/webstore/ajax/detail?ids=bncbklpmnbgbpnfdgkbahglbjmkcpmjd" | jq '.[1][0][1] | {name: .title, version: .version, users: .user_count, rating: .aggregate_rating, ratings_count: .rating_count}' > chrome-analytics.json
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add chrome-analytics.json
+          git commit -m "Update Chrome Web Store Analytics" || echo "No changes to commit"
+          git push
