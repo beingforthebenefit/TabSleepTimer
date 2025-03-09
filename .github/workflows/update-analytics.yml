@@ -3,7 +3,7 @@ name: Update Chrome Web Store Analytics
 on:
   schedule:
     - cron: "0 0 * * *" # Runs daily at midnight UTC
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
   fetch-and-update:
@@ -14,7 +14,7 @@ jobs:
 
       - name: Fetch Chrome Web Store Data
         run: |
-          curl -s "https://chromewebstore.google.com/webstore/ajax/detail?ids=bncbklpmnbgbpnfdgkbahglbjmkcpmjd" | jq '.[1][0][1] | {name: .title, version: .version, users: .user_count, rating: .aggregate_rating, ratings_count: .rating_count}' > chrome-analytics.json
+          curl -s "https://chrome-stats.com/api/extension/bncbklpmnbgbpnfdgkbahglbjmkcpmjd" | jq '{name: .name, version: .version, users: .users, rating: .rating, ratings_count: .ratings_count}' > chrome-analytics.json
 
       - name: Commit and Push Changes
         run: |
