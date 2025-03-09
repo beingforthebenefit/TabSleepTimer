@@ -22,10 +22,14 @@ jobs:
       - name: Fetch Chrome Web Store Data
         run: |
           ACCESS_TOKEN=$(gcloud auth print-access-token)
-          curl -s -X GET \
+          RESPONSE=$(curl -s -X GET \
             -H "Authorization: Bearer $ACCESS_TOKEN" \
-            "https://www.googleapis.com/chromewebstore/v1.1/items/bncbklpmnbgbpnfdgkbahglbjmkcpmjd" \
-            | jq '{name: .name, version: .version, users: .users, rating: .averageRating, ratings_count: .ratingCount}' > chrome-analytics.json
+            "https://www.googleapis.com/chromewebstore/v1.1/items/bncbklpmnbgbpnfdgkbahglbjmkcpmjd")
+
+          echo "API Response:"
+          echo "$RESPONSE" # Log the raw response
+          
+          echo "$RESPONSE" | jq '{name: .name, version: .version, users: .users, rating: .averageRating, ratings_count: .ratingCount}' > chrome-analytics.json
 
       - name: Commit and Push Changes
         env:
