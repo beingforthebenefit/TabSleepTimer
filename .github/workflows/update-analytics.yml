@@ -12,9 +12,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+      - name: Set Up Service Account Key
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.CHROME_API_SERVICE_ACCOUNT }}
+        run: |
+          echo "$SERVICE_ACCOUNT_JSON" > service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS=service-account.json
+
       - name: Fetch Chrome Web Store Data
         run: |
-          curl -s "https://chrome-stats.com/api/extension/bncbklpmnbgbpnfdgkbahglbjmkcpmjd" | jq '{name: .name, version: .version, users: .users, rating: .rating, ratings_count: .ratings_count}' > chrome-analytics.json
+          curl -s -X GET \
+            -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+            "https://www.googleapis.com/chromewebstore/v1.1/items/bncbklpmnbgbpnfdgkbahglbjmkcpmjd" \
+            | jq '{name: .name, version: .version, users: .users, rating: .averageRating, ratings_count: .ratingCount}' > chrome-analytics.json
 
       - name: Commit and Push Changes
         run: |
