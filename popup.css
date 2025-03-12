@@ -118,6 +118,44 @@ header h1 {
   background-color: #c33d2e;
 }
 
+#review-prompt {
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
+}
+
+#review-prompt p {
+  margin: 0 0 8px;
+  color: #333;
+}
+
+#review-prompt a {
+  color: #4285f4;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+#review-prompt a:hover {
+  text-decoration: underline;
+}
+
+#dismiss-review {
+  background-color: #ddd;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#dismiss-review:hover {
+  background-color: #ccc;
+}
+
 .hidden {
   display: none;
 }

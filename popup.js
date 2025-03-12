@@ -161,4 +161,33 @@ document.addEventListener('DOMContentLoaded', () => {
     customTimerBtn.disabled = false;
     customTimerBtn.classList.remove('disabled');
   }
+
+  /**
+   * Checks if the review prompt should be shown.
+   * Increments the usage count and shows the prompt if conditions are met.
+   */
+
+  const reviewPrompt = document.getElementById('review-prompt');
+  const dismissButton = document.getElementById('dismiss-review');
+
+  chrome.storage.local.get(['usageCount', 'reviewDismissed'], (result) => {
+    let count = result.usageCount || 0;
+    let dismissed = result.reviewDismissed || false;
+
+    // Increase usage count if not dismissed
+    if (!dismissed) {
+      count++;
+      chrome.storage.local.set({ usageCount: count });
+
+      // Show review prompt only if the user has used it 5+ times and hasn’t dismissed it
+      if (count >= 5) {
+        reviewPrompt.classList.remove('hidden');
+      }
+    }
+  });
+
+  dismissButton.addEventListener('click', () => {
+    reviewPrompt.classList.add('hidden');
+    chrome.storage.local.set({ reviewDismissed: true }); // Save dismissal so it doesn't show again
+  });
 });
