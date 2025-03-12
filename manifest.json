@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab Sleep Timer",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Automatically close tabs after a set period of time",
   "action": {
     "default_popup": "popup.html",
