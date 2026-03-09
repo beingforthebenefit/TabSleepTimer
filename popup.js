@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const cancelTimerBtn = document.getElementById('cancel-timer');
   const activeTimerDiv = document.getElementById('active-timer');
   const timeRemainingSpan = document.getElementById('time-remaining');
-
   let updateInterval = null;
   let currentTabId = null;
 
@@ -30,14 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function checkActiveTimer(tabId) {
     chrome.runtime.sendMessage({ action: 'getTimerStatus', tabId }, (response) => {
-      if (response && response.active) {
-        if (response.timeRemaining > 0) {
-          displayActiveTimer(response.timeRemaining);
-          startTimerUpdates(response.endTime);
-          disableTimerControls();
-        } else {
-          enableTimerControls();
-        }
+      if (chrome.runtime.lastError) {
+        console.warn('Could not check timer status:', chrome.runtime.lastError.message);
+        enableTimerControls();
+        return;
+      }
+      if (response && response.active && response.timeRemaining > 0) {
+        displayActiveTimer(response.timeRemaining);
+        startTimerUpdates(response.endTime);
+        disableTimerControls();
       } else {
         enableTimerControls();
       }
@@ -61,26 +61,56 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Clear validation error on input
+  customMinutesInput.addEventListener('input', clearValidationError);
+
   // Cancel timer event
   cancelTimerBtn.addEventListener('click', () => {
-    if (currentTabId) {
-      chrome.runtime.sendMessage({ action: 'cancelTimer', tabId: currentTabId });
-      stopTimerUpdates();
-      activeTimerDiv.classList.add('hidden');
-      enableTimerControls();
-    }
+    if (currentTabId == null) return;
+    chrome.runtime.sendMessage({ action: 'cancelTimer', tabId: currentTabId }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('Cancel failed:', chrome.runtime.lastError.message);
+      }
+    });
+    stopTimerUpdates();
+    activeTimerDiv.classList.add('hidden');
+    enableTimerControls();
   });
 
   /**
    * Sets the timer based on custom input.
    */
   function setTimerFromCustomInput() {
-    const minutes = parseInt(customMinutesInput.value);
-    if (minutes && minutes > 0 && minutes <= 1440) {
-      setTimer(minutes);
-    } else {
-      alert('Please enter a valid number of minutes (1-1440).');
+    const raw = customMinutesInput.value.trim();
+    const minutes = parseInt(raw);
+    if (!raw || isNaN(minutes) || minutes < 1 || minutes > 1440) {
+      showValidationError('Enter a number between 1 and 1440.');
+      customMinutesInput.focus();
+      return;
     }
+    setTimer(minutes);
+  }
+
+  /**
+   * Shows an inline validation error below the custom input.
+   * @param {string} message
+   */
+  function showValidationError(message) {
+    clearValidationError();
+    const error = document.createElement('div');
+    error.className = 'validation-error';
+    error.textContent = message;
+    error.setAttribute('role', 'alert');
+    const customTimerDiv = customMinutesInput.parentElement;
+    customTimerDiv.insertAdjacentElement('afterend', error);
+  }
+
+  /**
+   * Clears the inline validation error.
+   */
+  function clearValidationError() {
+    const existing = document.querySelector('.validation-error');
+    if (existing) existing.remove();
   }
 
   /**
@@ -88,13 +118,20 @@ document.addEventListener('DOMContentLoaded', () => {
    * @param {number} minutes
    */
   function setTimer(minutes) {
-    if (currentTabId) {
-      const endTime = Date.now() + minutes * 60 * 1000;
-      chrome.runtime.sendMessage({ action: 'setTimer', tabId: currentTabId, minutes, endTime });
-      displayActiveTimer(minutes * 60);
-      startTimerUpdates(endTime);
-      disableTimerControls();
-    }
+    if (currentTabId == null) return;
+    const endTime = Date.now() + minutes * 60 * 1000;
+    chrome.runtime.sendMessage(
+      { action: 'setTimer', tabId: currentTabId, minutes, endTime },
+      () => {
+        if (chrome.runtime.lastError) {
+          console.warn('Failed to set timer:', chrome.runtime.lastError.message);
+        }
+      }
+    );
+    clearValidationError();
+    displayActiveTimer(minutes * 60);
+    startTimerUpdates(endTime);
+    disableTimerControls();
   }
 
   /**
@@ -102,9 +139,14 @@ document.addEventListener('DOMContentLoaded', () => {
    * @param {number} seconds
    */
   function displayActiveTimer(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const secondsPart = seconds % 60;
-    timeRemainingSpan.textContent = `${minutes}:${secondsPart.toString().padStart(2, '0')}`;
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+      timeRemainingSpan.textContent = `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      timeRemainingSpan.textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
     activeTimerDiv.classList.remove('hidden');
   }
 
@@ -140,46 +182,34 @@ document.addEventListener('DOMContentLoaded', () => {
    * Disables timer control buttons.
    */
   function disableTimerControls() {
-    timerButtons.forEach(button => {
-      button.disabled = true;
-      button.classList.add('disabled');
-    });
+    timerButtons.forEach(button => { button.disabled = true; });
     customMinutesInput.disabled = true;
     customTimerBtn.disabled = true;
-    customTimerBtn.classList.add('disabled');
   }
 
   /**
    * Enables timer control buttons.
    */
   function enableTimerControls() {
-    timerButtons.forEach(button => {
-      button.disabled = false;
-      button.classList.remove('disabled');
-    });
+    timerButtons.forEach(button => { button.disabled = false; });
     customMinutesInput.disabled = false;
     customTimerBtn.disabled = false;
-    customTimerBtn.classList.remove('disabled');
   }
 
   /**
    * Checks if the review prompt should be shown.
-   * Increments the usage count and shows the prompt if conditions are met.
    */
-
   const reviewPrompt = document.getElementById('review-prompt');
   const dismissButton = document.getElementById('dismiss-review');
 
   chrome.storage.local.get(['usageCount', 'reviewDismissed'], (result) => {
     let count = result.usageCount || 0;
-    let dismissed = result.reviewDismissed || false;
+    const dismissed = result.reviewDismissed || false;
 
-    // Increase usage count if not dismissed
     if (!dismissed) {
       count++;
       chrome.storage.local.set({ usageCount: count });
 
-      // Show review prompt only if the user has used it 5+ times and hasn’t dismissed it
       if (count >= 5) {
         reviewPrompt.classList.remove('hidden');
       }
@@ -188,6 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   dismissButton.addEventListener('click', () => {
     reviewPrompt.classList.add('hidden');
-    chrome.storage.local.set({ reviewDismissed: true }); // Save dismissal so it doesn't show again
+    chrome.storage.local.set({ reviewDismissed: true });
   });
 });
