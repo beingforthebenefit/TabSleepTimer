@@ -45,7 +45,7 @@ function setStorage(items) {
 }
 
 /**
- * Restores timers from storage and sets them in activeTimers.
+ * Restores timers from storage, validating that tabs still exist.
  */
 async function restoreTimers() {
   try {
@@ -55,9 +55,17 @@ async function restoreTimers() {
     for (const tabId in timers) {
       const endTime = timers[tabId].endTime;
       if (endTime > now) {
-        activeTimers[parseInt(tabId)] = { endTime, countdownShown: false };
+        const id = parseInt(tabId);
+        // Verify the tab still exists before restoring its timer
+        try {
+          await chrome.tabs.get(id);
+          activeTimers[id] = { endTime, countdownShown: false };
+        } catch {
+          // Tab no longer exists — skip it
+        }
       }
     }
+    await persistTimers();
   } catch (error) {
     console.error('Error restoring timers:', error);
   }
@@ -76,6 +84,37 @@ async function persistTimers() {
   } catch (error) {
     console.error('Error persisting timers:', error);
   }
+}
+
+/**
+ * Updates the badge text for a tab to show remaining time.
+ * @param {number} tabId
+ * @param {number} timeRemaining - Time remaining in seconds.
+ */
+function updateBadge(tabId, timeRemaining) {
+  let text = '';
+  if (timeRemaining > 0) {
+    if (timeRemaining >= 3600) {
+      text = `${Math.floor(timeRemaining / 3600)}h`;
+    } else if (timeRemaining >= 60) {
+      text = `${Math.ceil(timeRemaining / 60)}m`;
+    } else {
+      text = `${timeRemaining}s`;
+    }
+  }
+  chrome.action.setBadgeText({ text, tabId });
+  chrome.action.setBadgeBackgroundColor({
+    color: timeRemaining <= 60 ? '#ea4335' : '#4285f4',
+    tabId,
+  });
+}
+
+/**
+ * Clears the badge for a tab.
+ * @param {number} tabId
+ */
+function clearBadge(tabId) {
+  chrome.action.setBadgeText({ text: '', tabId });
 }
 
 /**
@@ -98,7 +137,7 @@ async function cancelTabTimer(tabId) {
   if (activeTimers[tabId]) {
     delete activeTimers[tabId];
     await persistTimers();
-    // Remove countdown UI if injected
+    clearBadge(tabId);
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
@@ -121,6 +160,7 @@ async function closeTab(tabId) {
     console.warn("Failed to close tab", tabId, error);
   } finally {
     delete activeTimers[tabId];
+    clearBadge(tabId);
     await persistTimers();
   }
 }
@@ -168,14 +208,16 @@ async function updateTimers() {
     const timerData = activeTimers[tabId];
     const timeRemaining = Math.max(0, Math.floor((timerData.endTime - now) / 1000));
 
+    updateBadge(tabId, timeRemaining);
+
     if (timeRemaining <= 60) {
       if (!timerData.countdownShown) {
         await injectCountdown(tabId);
         timerData.countdownShown = true;
       }
       await updateCountdown(tabId, timeRemaining);
-    } else if (timeRemaining > 60 && timerData.countdownShown) {
-      // If extended beyond 1 minute, remove any warning UI.
+    } else if (timerData.countdownShown) {
+      // Timer was extended beyond 1 minute — remove warning UI.
       try {
         await chrome.scripting.executeScript({
           target: { tabId },
@@ -199,7 +241,7 @@ async function updateTimers() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     try {
-      const tabId = message.tabId || sender.tab?.id;
+      const tabId = message.tabId != null ? message.tabId : sender.tab?.id;
       switch (message.action) {
         case 'setTimer': {
           await setTabTimer(message.tabId, message.minutes, message.endTime);
@@ -251,95 +293,127 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /**
+ * Clean up timer when a tab is manually closed by the user.
+ * Prevents memory leaks from orphaned timer entries.
+ */
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (activeTimers[tabId]) {
+    delete activeTimers[tabId];
+    persistTimers();
+  }
+});
+
+/**
+ * Handle tab replacement (e.g. prerender navigation).
+ * Transfers the timer from the old tab to the new one.
+ */
+chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+  if (activeTimers[removedTabId]) {
+    activeTimers[addedTabId] = activeTimers[removedTabId];
+    delete activeTimers[removedTabId];
+    persistTimers();
+  }
+});
+
+/**
  * Injected into the page to create the countdown UI.
  * Runs in the context of the webpage.
  */
 function injectCountdownUI() {
-  if (document.getElementById('tab-sleep-timer-countdown')) {
-    return;
-  }
+  if (!document.body) return;
+  if (document.getElementById('tab-sleep-timer-countdown')) return;
 
   const countdownContainer = document.createElement('div');
   countdownContainer.id = 'tab-sleep-timer-countdown';
   countdownContainer.setAttribute('role', 'alert');
   countdownContainer.setAttribute('aria-live', 'assertive');
+  countdownContainer.setAttribute('aria-label', 'Tab sleep timer countdown');
+
+  // Detect dark vs light page background for adaptive styling
+  const isDarkPage = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const bg = isDarkPage ? 'rgba(30, 30, 30, 0.95)' : 'rgba(0, 0, 0, 0.88)';
+
   countdownContainer.style.cssText = `
     position: fixed;
     top: 20px;
     right: 20px;
-    background: rgba(0, 0, 0, 0.85);
+    background: ${bg};
     color: #fff;
     padding: 16px;
-    border-radius: 8px;
-    font-family: sans-serif;
+    border-radius: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 16px;
     z-index: 2147483647;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
     text-align: center;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   `;
 
   const message = document.createElement('div');
   message.textContent = 'Tab will close in:';
-  message.style.marginBottom = '8px';
+  message.style.cssText = 'margin-bottom: 6px; font-size: 13px; opacity: 0.85;';
 
   const timer = document.createElement('div');
   timer.id = 'tab-sleep-timer-countdown-time';
   timer.textContent = '0:00';
   timer.style.cssText = `
-    font-size: 20px;
+    font-size: 24px;
     font-weight: bold;
     margin-bottom: 12px;
+    font-variant-numeric: tabular-nums;
   `;
 
-  // Button container
   const buttonContainer = document.createElement('div');
-  buttonContainer.style.display = 'flex';
-  buttonContainer.style.gap = '8px';
-  buttonContainer.style.marginBottom = '12px';
+  buttonContainer.style.cssText = 'display: flex; gap: 6px; margin-bottom: 8px;';
+
+  const btnStyle = `
+    flex: 1;
+    padding: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: white;
+    transition: opacity 0.15s;
+  `;
 
   const createExtendButton = (minutes, label) => {
     const btn = document.createElement('button');
     btn.textContent = label;
-    btn.style.cssText = `
-      flex: 1;
-      padding: 8px;
-      font-size: 14px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      background: #4285f4;
-      color: white;
-    `;
+    btn.style.cssText = btnStyle + 'background: #4285f4;';
+    btn.addEventListener('mouseenter', () => { btn.style.opacity = '0.85'; });
+    btn.addEventListener('mouseleave', () => { btn.style.opacity = '1'; });
     btn.addEventListener('click', () => {
-      // Send extend message and immediately dismiss the warning window.
       chrome.runtime.sendMessage({ action: 'extendTimer', minutes });
       document.getElementById('tab-sleep-timer-countdown')?.remove();
     });
     return btn;
   };
 
-  const btn5 = createExtendButton(5, '+5m');
-  const btn30 = createExtendButton(30, '+30m');
-  const btn60 = createExtendButton(60, '+1h');
-
-  buttonContainer.appendChild(btn5);
-  buttonContainer.appendChild(btn30);
-  buttonContainer.appendChild(btn60);
+  buttonContainer.appendChild(createExtendButton(5, '+5m'));
+  buttonContainer.appendChild(createExtendButton(30, '+30m'));
+  buttonContainer.appendChild(createExtendButton(60, '+1h'));
 
   const cancelButton = document.createElement('button');
   cancelButton.textContent = 'Cancel Timer';
   cancelButton.style.cssText = `
     width: 100%;
-    padding: 8px;
-    font-size: 14px;
+    padding: 7px;
+    font-size: 13px;
+    font-weight: 500;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
     background: #ea4335;
     color: white;
+    transition: opacity 0.15s;
   `;
+  cancelButton.addEventListener('mouseenter', () => { cancelButton.style.opacity = '0.85'; });
+  cancelButton.addEventListener('mouseleave', () => { cancelButton.style.opacity = '1'; });
   cancelButton.addEventListener('click', () => {
     chrome.runtime.sendMessage({ action: 'cancelTimer' });
     countdownContainer.remove();
@@ -351,7 +425,6 @@ function injectCountdownUI() {
   countdownContainer.appendChild(cancelButton);
 
   document.body.appendChild(countdownContainer);
-  // Trigger fade-in transition
   requestAnimationFrame(() => {
     countdownContainer.style.opacity = '1';
   });
@@ -374,10 +447,7 @@ function updateCountdownUI(timeRemaining) {
  * Injected into the page to remove the countdown UI.
  */
 function removeCountdownFromPage() {
-  const countdownElement = document.getElementById('tab-sleep-timer-countdown');
-  if (countdownElement) {
-    countdownElement.remove();
-  }
+  document.getElementById('tab-sleep-timer-countdown')?.remove();
 }
 
 // Start the global update loop when the background script initializes.
