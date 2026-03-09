@@ -1,26 +1,46 @@
 :root {
   --primary-color: #4285f4;
+  --primary-hover: #357ae8;
   --danger-color: #ea4335;
-  --background-color: #f9f9f9;
+  --danger-hover: #c33d2e;
+  --bg-color: #f9f9f9;
+  --surface-color: #fff;
   --text-color: #333;
+  --text-secondary: #666;
   --border-color: #ddd;
-  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  --transition-duration: 0.3s;
+  --disabled-bg: #eaeaea;
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --transition-duration: 0.2s;
+  --radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-color: #6ea8fe;
+    --primary-hover: #5a95eb;
+    --danger-color: #f87171;
+    --danger-hover: #dc4a4a;
+    --bg-color: #1e1e1e;
+    --surface-color: #2a2a2a;
+    --text-color: #e4e4e4;
+    --text-secondary: #aaa;
+    --border-color: #444;
+    --disabled-bg: #333;
+  }
 }
 
 * {
   box-sizing: border-box;
+  margin: 0;
 }
 
 body {
-  margin: 0;
   padding: 0;
   font-family: var(--font-family);
-  background-color: var(--background-color);
+  background-color: var(--bg-color);
   color: var(--text-color);
 }
 
-/* Increase the popup width by enforcing a min-width */
 .container {
   padding: 20px;
   min-width: 300px;
@@ -28,136 +48,214 @@ body {
 }
 
 header h1 {
-  font-size: 24px;
-  margin-bottom: 16px;
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 14px;
   text-align: center;
+}
+
+section[aria-label="Set Timer"] p {
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  font-size: 14px;
 }
 
 .timer-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .timer-btn {
-  background-color: #fff;
+  background-color: var(--surface-color);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 10px;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-color);
   cursor: pointer;
-  transition: background-color var(--transition-duration);
+  transition: background-color var(--transition-duration), border-color var(--transition-duration);
 }
 
-.timer-btn:hover:not(.disabled) {
-  background-color: #f0f0f0;
+.timer-btn:hover:not(:disabled) {
+  background-color: var(--border-color);
 }
 
-.timer-btn.disabled {
-  opacity: 0.6;
+.timer-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.timer-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .custom-timer {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .custom-timer input {
   flex: 1;
   padding: 10px;
-  font-size: 16px;
+  font-size: 15px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius);
+  background-color: var(--surface-color);
+  color: var(--text-color);
+  transition: border-color var(--transition-duration);
+}
+
+.custom-timer input:focus {
+  border-color: var(--primary-color);
+  outline: none;
 }
 
 .custom-timer input:disabled {
-  background-color: #eaeaea;
+  background-color: var(--disabled-bg);
+  opacity: 0.5;
 }
 
 #custom-timer-btn {
   background-color: var(--primary-color);
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 10px 16px;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 500;
   cursor: pointer;
   transition: background-color var(--transition-duration);
 }
 
-#custom-timer-btn:hover:not(.disabled) {
-  background-color: #357ae8;
+#custom-timer-btn:hover:not(:disabled) {
+  background-color: var(--primary-hover);
 }
 
+#custom-timer-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+#custom-timer-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Inline validation error */
+.validation-error {
+  color: var(--danger-color);
+  font-size: 12px;
+  margin-top: -10px;
+  margin-bottom: 12px;
+  text-align: center;
+  animation: fadeIn 0.2s ease;
+}
+
+/* Active timer panel */
 #active-timer {
-  background-color: #fff;
+  background-color: var(--surface-color);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 16px;
   text-align: center;
-  transition: opacity var(--transition-duration);
+  animation: fadeIn 0.2s ease;
+}
+
+#active-timer p {
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+
+#time-remaining {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 #cancel-timer {
   background-color: var(--danger-color);
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 10px 16px;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 500;
   cursor: pointer;
   transition: background-color var(--transition-duration);
-  margin-top: 12px;
   width: 100%;
 }
 
 #cancel-timer:hover {
-  background-color: #c33d2e;
+  background-color: var(--danger-hover);
 }
 
+#cancel-timer:focus-visible {
+  outline: 2px solid var(--danger-color);
+  outline-offset: 2px;
+}
+
+/* Review prompt */
 #review-prompt {
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 12px;
-  margin-top: 16px;
+  background-color: var(--surface-color);
+  border-top: 1px solid var(--border-color);
+  padding: 12px 20px;
   text-align: center;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 #review-prompt p {
   margin: 0 0 8px;
-  color: #333;
+  color: var(--text-secondary);
 }
 
 #review-prompt a {
-  color: #4285f4;
+  color: var(--primary-color);
   text-decoration: none;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 #review-prompt a:hover {
   text-decoration: underline;
 }
 
+#review-prompt a:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 #dismiss-review {
-  background-color: #ddd;
+  background-color: var(--border-color);
+  color: var(--text-color);
   border: none;
   border-radius: 4px;
-  padding: 6px 12px;
+  padding: 5px 12px;
   font-size: 12px;
   cursor: pointer;
+  transition: background-color var(--transition-duration);
 }
 
 #dismiss-review:hover {
-  background-color: #ccc;
+  opacity: 0.8;
+}
+
+#dismiss-review:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
 }
 
 .hidden {
   display: none;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Responsive adjustments */
